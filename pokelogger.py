@@ -20,7 +20,7 @@ def display_player_stats(pokemon_stats, player_stats):
     # Display player stats
     st.subheader("Player Stats")
     for player_id, player_stat in player_stats.items():
-        st.write(f"Player ID: {player_id}")
+        st.write(f"Player ID: {player_stat.name}")
         st.write(f"Matches Won: {player_stat.matches_won}")
         st.write(f"Matches Lost: {player_stat.matches_lost}")
 
@@ -36,7 +36,7 @@ def display_player_stats(pokemon_stats, player_stats):
     for pokemon, pokemon_stat in pokemon_stats.items():
         st.write(f"Pokemon: {pokemon}")
         st.write(f"Owner: {pokemon_stat.owner}")
-        st.write(f"Fainted Count: {pokemon_stat.fainted_count}")
+        st.write(f"Fainted Count: {pokemon_stat.kill_count}")
         st.write(f"Matches Won: {pokemon_stat.matches_won}")
         st.write(f"Times Fainted: {pokemon_stat.times_fainted}")
         st.write(f"Moves Used: {pokemon_stat.moves_used}")

@@ -116,8 +116,9 @@ def display_player_stats(pokemon_stats, player_stats):
         win_ratio = pokemon_stat.matches_won / pokemon_stat.matches_played
 
         pokemon_row = {
-            "Icon": f"data:image/jpg;base64,{img_data}",
+            "Icon": f"data:image/png;base64,{img_data}",
             "Pokemon": pokemon[0],
+            "Species": pokemon_stat.species,
             "Owner": pokemon_stat.owner,
             "Kill Count": pokemon_stat.kill_count,
             "Times Fainted": pokemon_stat.times_fainted,

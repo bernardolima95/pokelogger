@@ -19,6 +19,8 @@
                     "args": [
                         "run",
                         "${file}",
+                        "--server.enableXsrfProtection",
+                        "false",
                     ]
                 }      
     ]

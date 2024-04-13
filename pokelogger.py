@@ -1,48 +1,146 @@
 import streamlit as st
-from bs4 import BeautifulSoup
+from collections import Counter
+import pandas as pd
+import base64
+from PIL import Image
+from io import BytesIO
 
 from pokeparser import parse_log
+
+pokemon_images_folder = 'icons'
+
+matches = {}
 
 def main():
     st.title("Battle Log Parser")
 
     # File uploader widget
-    uploaded_file = st.file_uploader("Upload HTML file", type="html")
+    uploaded_files = st.file_uploader("Upload HTML file", type="html", accept_multiple_files=True)
 
-    if uploaded_file is not None:
-        # Parse log data if file is uploaded
-        log_data, pokemon_stats, player_stats = parse_log(uploaded_file)
-        st.text_area("Parsed Log Data", log_data, height=400)
-        display_player_stats(pokemon_stats, player_stats)
+    if uploaded_files:
+
+        for file in uploaded_files:
+            log_data, pokemon_stats, player_stats, match_id = parse_log(file)
+            if match_id not in matches:
+                matches[match_id] = {'pokemon_stats': pokemon_stats, 
+                                    'player_stats': player_stats,
+                                    'log_data': log_data}
+        
+        pokemon_stats_agg, player_stats_agg, moves_used_agg, pokemon_usage_agg = aggregate_data(matches)
+        print(matches)
+
+        #st.text_area("Parsed Log Data", log_data, height=400)
+        display_player_stats(pokemon_stats_agg, player_stats_agg)
+
+def aggregate_data(matches):
+    pokemon_stats_agg = {}
+    player_stats_agg = {}
+    moves_used_agg = {}
+    pokemon_usage_agg = {}
+
+    for match_data in matches.values():
+        pokemon_stats = match_data['pokemon_stats']
+        player_stats = match_data['player_stats']
+
+        # Aggregate Pokemon stats
+        for pokemon_handle, stats in pokemon_stats.items():
+            key = (pokemon_handle, stats.owner)
+            if key not in pokemon_stats_agg:
+                pokemon_stats_agg[key] = stats
+            else:
+                # Update agg stats
+                agg_stats = pokemon_stats_agg[key]
+                agg_stats.kill_count += stats.kill_count
+                agg_stats.matches_won += stats.matches_won
+                agg_stats.times_fainted += stats.times_fainted
+                agg_stats.total_damage_taken += stats.total_damage_taken
+                agg_stats.total_damage_dealt += stats.total_damage_dealt
+                agg_stats.moves_used = Counter(agg_stats.moves_used) + Counter(stats.moves_used)
+
+                # Aggregate moves used
+                for move, count in stats.moves_used.items():
+                    moves_used_agg[move] = moves_used_agg.get(move, 0) + count
+
+        # Aggregate Player stats
+        for player_name, player_stat in player_stats.items():
+            if player_name not in player_stats_agg:
+                 player_stats_agg[player_name] = player_stat
+            else:
+                # Update agg stats
+                agg_stats = player_stats_agg[player_name]
+                agg_stats.matches_won += player_stat.matches_won
+                agg_stats.matches_lost += player_stat.matches_lost
+                agg_stats.pokemon_usage = Counter(agg_stats.pokemon_usage) + Counter(player_stat.pokemon_usage)
+
+                # Aggregate Pokemon usage
+                for pokemon, count in player_stat.pokemon_usage.items():
+                    pokemon_usage_agg[pokemon] = pokemon_usage_agg.get(pokemon, 0) + count
+
+    return pokemon_stats_agg, player_stats_agg, moves_used_agg, pokemon_usage_agg
 
 def display_player_stats(pokemon_stats, player_stats):
-
     # Display player stats
     st.subheader("Player Stats")
-    for player_id, player_stat in player_stats.items():
-        st.write(f"Player ID: {player_stat.name}")
-        st.write(f"Matches Won: {player_stat.matches_won}")
-        st.write(f"Matches Lost: {player_stat.matches_lost}")
 
-        # Display Pokémon usage stats for each player
-        st.write("Pokémon Usage:")
-        for pokemon, usage_count in player_stat.pokemon_usage.items():
-            st.write(f"{pokemon}: {usage_count}")
+    # Create a DataFrame for player stats
+    player_data = []
+    for player_stat in player_stats.values():
+        player_row = {
+            "Player ID": player_stat.name,
+            "Matches Won": player_stat.matches_won,
+            "Matches Lost": player_stat.matches_lost,
+            "Pokémon Usage": ', '.join([f"{pokemon}: {count}" for pokemon, count in player_stat.pokemon_usage.items()])
+        }
+        player_data.append(player_row)
 
-        st.write("---")
+    player_df = pd.DataFrame(player_data)
+    st.write(player_df)
+
+    st.write("---")
 
     # Display Pokémon stats
     st.subheader("Pokémon Stats")
+
+    # Create a DataFrame for Pokémon stats
+    pokemon_data = []
     for pokemon, pokemon_stat in pokemon_stats.items():
-        st.write(f"Pokemon: {pokemon}")
-        st.write(f"Owner: {pokemon_stat.owner}")
-        st.write(f"Fainted Count: {pokemon_stat.kill_count}")
-        st.write(f"Matches Won: {pokemon_stat.matches_won}")
-        st.write(f"Times Fainted: {pokemon_stat.times_fainted}")
-        st.write(f"Moves Used: {pokemon_stat.moves_used}")
+        species_name = clean_species_name(pokemon_stat.species)
+        pokemon_image_path = f"{pokemon_images_folder}/{species_name}.png"
+        try:
+            img_data = base64.b64encode(open(pokemon_image_path, "rb").read()).decode()
+        except Exception as e:
+            print(f"Error reading image for {pokemon_stat.species}: {e}")
+            img_data = None
 
-        st.write("---")
+        k_d_ratio = pokemon_stat.kill_count / pokemon_stat.times_fainted if pokemon_stat.times_fainted != 0 else None
 
+        pokemon_row = {
+            "Icon": f"data:image/jpg;base64,{img_data}",
+            "Pokemon": pokemon[0],
+            "Owner": pokemon_stat.owner,
+            "Kill Count": pokemon_stat.kill_count,
+            "Matches Won": pokemon_stat.matches_won,
+            "Times Fainted": pokemon_stat.times_fainted,
+            "K/D": k_d_ratio,
+            "Moves Used": ', '.join([f"{move}: {count}" for move, count in pokemon_stat.moves_used.items()])
+        }
+
+        pokemon_data.append(pokemon_row)
+
+    pokemon_df = pd.DataFrame(pokemon_data)
+
+    st.dataframe(
+        pokemon_df,
+        column_config = {"Icon": st.column_config.ImageColumn()}
+    )
+
+def clean_species_name(name):
+    cleaned_name = name.lower().replace(" ", "-")
+    substr_to_remove = [":", ".", "-East", "-Three-Segment", "-Blue", "-Four", "-Three"]
+    for substr in substr_to_remove:
+        cleaned_name = cleaned_name.replace(substr, "")
+
+    return cleaned_name.lower()
 
 if __name__ == "__main__":
     main()

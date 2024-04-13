@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 import re
+from typing import Dict
 
 class PokemonStats:
     def __init__(self, owner, species, curr_hp, max_hp):
@@ -15,8 +16,9 @@ class PokemonStats:
         self.curr_hp = max_hp
 
 class PlayerStats:
-    def __init__(self, name):
+    def __init__(self, name, id):
         self.name = name
+        self.curr_id = id
         self.pokemon_usage = {}  
         self.item_usage = {}    
         self.matches_won = 0
@@ -29,7 +31,8 @@ def parse_players(log_data):
             parts = line.split('|')
             player_id = parts[2]  # Extracting player ID
             player_name = parts[3]  # Extracting player name
-            player_stats[player_id] = PlayerStats(name = player_name)  # Initialize player statistics
+            player_stats[player_name] = PlayerStats(name = player_name, # Initialize player statistics
+                                                    id = player_id)  
     return player_stats
 
 
@@ -53,6 +56,7 @@ def get_log_data(file):
 def parse_battle(log_data, player_stats):
     # Initialize dictionaries to store Pokémon and player statistics
     pokemon_stats = {}
+    match_id = ''
 
     # Variables to track the active Pokémon for each player
     active_pokemon = {}
@@ -64,9 +68,12 @@ def parse_battle(log_data, player_stats):
 
         try:
             # Check if a Pokémon is switched in
+            if parts[1] == 't:':
+                match_id = parts[2]
             if parts[1] == 'switch':
                 trainer_pair, pokemon_species, hp_info = parts[2], parts[3], get_hp_info(parts[4])
                 trainer_id, pokemon_name = break_up_trainer_pair(trainer_pair)
+                player = get_player_by_id(trainer_id, player_stats)
                 
                 if ',' in pokemon_species:
                     pokemon_species, _ = pokemon_species.split(',', 1)
@@ -78,16 +85,15 @@ def parse_battle(log_data, player_stats):
 
                 # Initialize Pokémon statistics if not already present
                 if pokemon_name not in pokemon_stats:
-                    pokemon_stats[pokemon_name] = PokemonStats(owner=trainer_id, 
+                    pokemon_stats[pokemon_name] = PokemonStats(owner=player.name, 
                                                             species = pokemon_species,
                                                             curr_hp = hp_info['curr_hp'],
                                                             max_hp = hp_info['max_hp'])
 
                 # Update Pokémon usage count for the player
-                if trainer_id in player_stats:
-                    if pokemon_name not in player_stats[trainer_id].pokemon_usage:
-                        player_stats[trainer_id].pokemon_usage[pokemon_name] = 0
-                    player_stats[trainer_id].pokemon_usage[pokemon_name] += 1
+                if pokemon_name not in player.pokemon_usage:
+                    player.pokemon_usage[pokemon_name] = 0
+                player.pokemon_usage[pokemon_name] += 1
 
             # Check if a move is used
             elif parts[1] == 'move':
@@ -130,8 +136,13 @@ def parse_battle(log_data, player_stats):
             print(parts)
 
     # Return the parsed Pokémon and player statistics
-    return pokemon_stats, player_stats
+    return pokemon_stats, player_stats, match_id
 
+
+def get_player_by_id(trainer_id: str, player_stats: Dict[str, PlayerStats]):
+    for key, player in player_stats.items():
+        if player.curr_id == trainer_id:
+            return player
 
 def break_up_trainer_pair(trainer_pair: str):
     """
@@ -175,5 +186,5 @@ def calculate_damage_info(hp_string: str, pokemon: PokemonStats, fainted = False
 def parse_log(file):
     log_data = get_log_data(file)
     player_stats = parse_players(log_data)
-    pokemon_stats, player_stats = parse_battle(log_data, player_stats)
-    return log_data, pokemon_stats, player_stats
+    pokemon_stats, player_stats, match_id = parse_battle(log_data, player_stats)
+    return log_data, pokemon_stats, player_stats, match_id

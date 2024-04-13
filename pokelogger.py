@@ -48,16 +48,16 @@ def aggregate_data(matches):
             if key not in pokemon_stats_agg:
                 pokemon_stats_agg[key] = stats
             else:
-                # Update agg stats
                 agg_stats = pokemon_stats_agg[key]
                 agg_stats.kill_count += stats.kill_count
                 agg_stats.matches_won += stats.matches_won
+                agg_stats.matches_lost += stats.matches_lost
+                agg_stats.matches_played += stats.matches_played
                 agg_stats.times_fainted += stats.times_fainted
                 agg_stats.total_damage_taken += stats.total_damage_taken
                 agg_stats.total_damage_dealt += stats.total_damage_dealt
                 agg_stats.moves_used = Counter(agg_stats.moves_used) + Counter(stats.moves_used)
 
-                # Aggregate moves used
                 for move, count in stats.moves_used.items():
                     moves_used_agg[move] = moves_used_agg.get(move, 0) + count
 
@@ -66,29 +66,29 @@ def aggregate_data(matches):
             if player_name not in player_stats_agg:
                  player_stats_agg[player_name] = player_stat
             else:
-                # Update agg stats
                 agg_stats = player_stats_agg[player_name]
                 agg_stats.matches_won += player_stat.matches_won
                 agg_stats.matches_lost += player_stat.matches_lost
+                agg_stats.matches_played += player_stat.matches_played
                 agg_stats.pokemon_usage = Counter(agg_stats.pokemon_usage) + Counter(player_stat.pokemon_usage)
 
-                # Aggregate Pokemon usage
                 for pokemon, count in player_stat.pokemon_usage.items():
                     pokemon_usage_agg[pokemon] = pokemon_usage_agg.get(pokemon, 0) + count
 
     return pokemon_stats_agg, player_stats_agg, moves_used_agg, pokemon_usage_agg
 
 def display_player_stats(pokemon_stats, player_stats):
-    # Display player stats
     st.subheader("Player Stats")
 
-    # Create a DataFrame for player stats
     player_data = []
     for player_stat in player_stats.values():
+        win_ratio = player_stat.matches_won / player_stat.matches_played
         player_row = {
             "Player ID": player_stat.name,
+            "Matches Played": player_stat.matches_played,
             "Matches Won": player_stat.matches_won,
             "Matches Lost": player_stat.matches_lost,
+            "Win Ratio": win_ratio,
             "Pokémon Usage": ', '.join([f"{pokemon}: {count}" for pokemon, count in player_stat.pokemon_usage.items()])
         }
         player_data.append(player_row)
@@ -112,16 +112,20 @@ def display_player_stats(pokemon_stats, player_stats):
             print(f"Error reading image for {pokemon_stat.species}: {e}")
             img_data = None
 
-        k_d_ratio = pokemon_stat.kill_count / pokemon_stat.times_fainted if pokemon_stat.times_fainted != 0 else None
+        k_d_ratio = pokemon_stat.kill_count / pokemon_stat.times_fainted if pokemon_stat.times_fainted != 0 else pokemon_stat.kill_count / 1
+        win_ratio = pokemon_stat.matches_won / pokemon_stat.matches_played
 
         pokemon_row = {
             "Icon": f"data:image/jpg;base64,{img_data}",
             "Pokemon": pokemon[0],
             "Owner": pokemon_stat.owner,
             "Kill Count": pokemon_stat.kill_count,
-            "Matches Won": pokemon_stat.matches_won,
             "Times Fainted": pokemon_stat.times_fainted,
             "K/D": k_d_ratio,
+            "Matches Won": pokemon_stat.matches_won,
+            "Matches Lost": pokemon_stat.matches_lost,
+            "Matches Played": pokemon_stat.matches_played,
+            "Win Ratio": win_ratio,
             "Moves Used": ', '.join([f"{move}: {count}" for move, count in pokemon_stat.moves_used.items()])
         }
 

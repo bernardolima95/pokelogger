@@ -8,6 +8,8 @@ class PokemonStats:
         self.owner = owner
         self.kill_count = 0
         self.matches_won = 0
+        self.matches_lost = 0
+        self.matches_played = 0
         self.times_fainted = 0
         self.moves_used = {}
         self.total_damage_taken = 0
@@ -23,6 +25,7 @@ class PlayerStats:
         self.item_usage = {}    
         self.matches_won = 0
         self.matches_lost = 0
+        self.matches_played = 0
 
 def parse_players(log_data):
     player_stats = {}
@@ -56,7 +59,7 @@ def get_log_data(file):
 def parse_battle(log_data, player_stats):
     # Initialize dictionaries to store Pokémon and player statistics
     pokemon_stats = {}
-    match_id = ''
+    match_id = None
 
     # Variables to track the active Pokémon for each player
     active_pokemon = {}
@@ -67,9 +70,10 @@ def parse_battle(log_data, player_stats):
             continue
 
         try:
-            # Check if a Pokémon is switched in
-            if parts[1] == 't:':
+            # Gets the timestamp for the of the match - Which makes it unique
+            if parts[1] == 't:' and not match_id:
                 match_id = parts[2]
+            # Checks if a Pokémon is switched in
             if parts[1] == 'switch':
                 trainer_pair, pokemon_species, hp_info = parts[2], parts[3], get_hp_info(parts[4])
                 trainer_id, pokemon_name = break_up_trainer_pair(trainer_pair)
@@ -80,22 +84,22 @@ def parse_battle(log_data, player_stats):
                 else:
                     pokemon_species = pokemon_species
 
-                # Store active Pokémon for each player
+                # Stores active Pokémon for each player
                 active_pokemon[trainer_id] = pokemon_name
 
-                # Initialize Pokémon statistics if not already present
+                # Initializes Pokémon statistics if not already present
                 if pokemon_name not in pokemon_stats:
                     pokemon_stats[pokemon_name] = PokemonStats(owner=player.name, 
                                                             species = pokemon_species,
                                                             curr_hp = hp_info['curr_hp'],
                                                             max_hp = hp_info['max_hp'])
 
-                # Update Pokémon usage count for the player
+                # Updates Pokémon usage count for the player
                 if pokemon_name not in player.pokemon_usage:
                     player.pokemon_usage[pokemon_name] = 0
                 player.pokemon_usage[pokemon_name] += 1
 
-            # Check if a move is used
+            # Checks if a move is used
             elif parts[1] == 'move':
                 trainer_pair, move_name, target_info = parts[2], parts[3], parts[4]
                 trainer_id, attacking_pokemon_name = break_up_trainer_pair(trainer_pair)
@@ -129,6 +133,23 @@ def parse_battle(log_data, player_stats):
                 # Update total damage taken for the target Pokémon
                 if target_pokemon_name in pokemon_stats:
                     pokemon_stats[target_pokemon_name].total_damage_taken += int(damage_taken)
+            
+            elif parts[1] == 'win':
+                winner_name = parts[2]
+                for player in player_stats.values():
+                    player.matches_played += 1
+                    if player.name == winner_name:
+                        player.matches_won += 1
+                    else:
+                        player.matches_lost += 1
+                for pokemon in pokemon_stats.values():
+                    pokemon.matches_played += 1
+                    if pokemon.owner == winner_name:
+                        pokemon.matches_won += 1
+                    else:
+                        pokemon.matches_lost += 1
+                
+
 
         except Exception as e:
             print("Exception:", e)

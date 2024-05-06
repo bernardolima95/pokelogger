@@ -3,8 +3,10 @@
 Bugs/Fixes
 - [ ] Atualizar usage count pra contar switch-ins separadamente
 - [ ] Atualizar damage taken pra usar apenas porcentagens :(
+  - [ ] Considerar 0 EVs + 3% de HP pra todos pokémons, lendo de uma base de dados das espécies
 - [ ] Contar dano e kills de Spikes e Stealth Rock corretamente
 - [ ] Contar dano e kills de Toxic e Burn corretamente
+- [ ] Atualizar as imagens restantes
 
 Métricas Específicas
 - [ ] Contar turnos que o Pokémon esteve ativo

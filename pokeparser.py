@@ -94,10 +94,6 @@ def parse_battle(log_data, player_stats):
                                                             curr_hp = hp_info['curr_hp'],
                                                             max_hp = hp_info['max_hp'])
 
-                # Updates Pokémon usage count for the player
-                if pokemon_name not in player.pokemon_usage:
-                    player.pokemon_usage[pokemon_name] = 0
-                player.pokemon_usage[pokemon_name] += 1
 
             # Checks if a move is used
             elif parts[1] == 'move':
@@ -142,12 +138,17 @@ def parse_battle(log_data, player_stats):
                         player.matches_won += 1
                     else:
                         player.matches_lost += 1
-                for pokemon in pokemon_stats.values():
+                for pokemon_name, pokemon in pokemon_stats.items():
                     pokemon.matches_played += 1
                     if pokemon.owner == winner_name:
                         pokemon.matches_won += 1
                     else:
                         pokemon.matches_lost += 1
+
+                    pokemon_owner = player_stats[pokemon.owner]
+                    if pokemon_name not in pokemon_owner.pokemon_usage:
+                        pokemon_owner.pokemon_usage[pokemon_name] = 0
+                    pokemon_owner.pokemon_usage[pokemon_name] += 1
                 
 
 

@@ -27,10 +27,11 @@ def main():
                                     'log_data': log_data}
         
         pokemon_stats_agg, player_stats_agg, moves_used_agg, pokemon_usage_agg = aggregate_data(matches)
-        print(matches)
+        species_usage = get_refined_stats(pokemon_stats_agg)
 
         #st.text_area("Parsed Log Data", log_data, height=400)
         display_player_stats(pokemon_stats_agg, player_stats_agg)
+        display_general_stats(species_usage)
 
 def aggregate_data(matches):
     pokemon_stats_agg = {}
@@ -76,6 +77,16 @@ def aggregate_data(matches):
                     pokemon_usage_agg[pokemon] = pokemon_usage_agg.get(pokemon, 0) + count
 
     return pokemon_stats_agg, player_stats_agg, moves_used_agg, pokemon_usage_agg
+
+def get_refined_stats(pokemon_stats_agg):
+    species_usage_dict = {}
+
+    for pokemon in pokemon_stats_agg.values():
+        if pokemon.species not in species_usage_dict:
+            species_usage_dict[pokemon.species] = 0
+        species_usage_dict[pokemon.species] += pokemon.matches_played
+
+    return species_usage_dict
 
 def display_player_stats(pokemon_stats, player_stats):
     st.subheader("Player Stats")
@@ -136,6 +147,32 @@ def display_player_stats(pokemon_stats, player_stats):
 
     st.dataframe(
         pokemon_df,
+        column_config = {"Icon": st.column_config.ImageColumn()}
+    )
+
+def display_general_stats(species_usage):
+    st.subheader("Usage Stats")
+    # Create a DataFrame for Pokémon usage stats
+    pokemon_data = []
+    for species_name, species in species_usage.items():
+        pokemon_image_path = f"{pokemon_images_folder}/{species_name}.png"
+        try:
+            img_data = base64.b64encode(open(pokemon_image_path, "rb").read()).decode()
+        except Exception as e:
+            print(f"Error reading image for {species_name}: {e}")
+            img_data = None
+
+        pokemon_row = {
+            "Icon": f"data:image/png;base64,{img_data}",
+            "Species": species_name,
+            "Times Used": species
+        }
+
+        pokemon_data.append(pokemon_row)
+
+    species_df = pd.DataFrame(pokemon_data)
+    st.dataframe(
+        species_df,
         column_config = {"Icon": st.column_config.ImageColumn()}
     )
 
